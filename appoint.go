@@ -1,9 +1,18 @@
 package appoint
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"sort"
+
 	"github.com/immofon/appoint/log"
 	"github.com/immofon/appoint/utils"
 	bolt "go.etcd.io/bbolt"
+)
+
+var (
+	ErrTimeCollided = errors.New("time-collided")
 )
 
 const (
@@ -30,7 +39,7 @@ const (
 	Role_Student Role = "student"
 )
 
-type TimmRange struct {
+type TimeRange struct {
 	From    uint64 `json:"from"`    // unix
 	To      uint64 `json:"to"`      // unix
 	Teacher string `json:"teacher"` // id
@@ -107,4 +116,105 @@ func GetRole(db *bolt.DB, id string) Role {
 		return nil
 	})
 	return r
+}
+
+func EachRole(db *bolt.DB, fn func(id string, r Role) error) error {
+	return db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(bucket_appointment))
+		if b == nil {
+			log.L().Error()
+			return utils.ErrInternal
+		}
+
+		b_role := b.Bucket([]byte(bucket_role))
+		if b_role == nil {
+			log.L().Error()
+			return utils.ErrInternal
+		}
+
+		return b_role.ForEach(func(_id, _role []byte) error {
+			return fn(string(_id), Role(_role))
+		})
+	})
+}
+
+func Insert(db *bolt.DB, tr TimeRange) error {
+	tr.Status = Status_Enable
+	return db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(bucket_appointment))
+		if b == nil {
+			log.L().Error()
+			return utils.ErrInternal
+		}
+
+		b_tr := b.Bucket([]byte(bucket_time_range))
+		if b_tr == nil {
+			log.L().Error()
+			return utils.ErrInternal
+		}
+
+		trs := make([]TimeRange, 0, 100)
+		b_tr.ForEach(func(_, _tr []byte) error {
+			var tr TimeRange
+			json.Unmarshal(_tr, &tr)
+			trs = append(trs, tr)
+			return nil
+		})
+
+		if IsCollided(trs, tr) {
+			log.E(ErrTimeCollided).Error()
+			return ErrTimeCollided
+		}
+
+		// just insert
+		data, err := json.Marshal(tr)
+		if err != nil {
+			log.E(err).Error()
+			return utils.ErrInternal
+		}
+		if err := b_tr.Put([]byte(TimeRangeId(tr)), data); err != nil {
+			log.E(err).Error()
+			return utils.ErrInternal
+		}
+		log.L().WithField("from", tr.From).
+			WithField("to", tr.To).
+			WithField("teacher", tr.Teacher).
+			WithField("student", tr.Student).
+			WithField("status", tr.Status).
+			Info("ok")
+		return nil
+	})
+}
+
+func IsCollided(trs []TimeRange, tr TimeRange) bool {
+	if tr.From >= tr.To {
+		return true
+	}
+
+	trs = append(trs, tr)
+
+	sort.Slice(trs, func(i, j int) bool {
+		return trs[i].From < trs[j].From
+	})
+
+	haveNext := func(i int) bool {
+		return (i + 1) < len(trs)
+	}
+
+	for i, tr := range trs {
+		if !haveNext(i) {
+			continue
+		}
+
+		next := trs[i+1]
+
+		if tr.From <= next.From && next.From <= tr.To {
+			return true
+		}
+	}
+	return false
+}
+
+func TimeRangeId(tr TimeRange) string {
+	return fmt.Sprintf("%d_%d", tr.From, tr.To)
 }
