@@ -2,7 +2,9 @@ package account
 
 import (
 	"bytes"
+	"crypto/md5"
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	"errors"
@@ -44,6 +46,9 @@ func Add(db *bolt.DB, u User) error {
 	if u.Account == "" || u.Password == "" || u.Name == "" {
 		return ErrNotSet
 	}
+	// md5 password
+	u.Password = md5pass(u.Account, u.Password)
+
 	return db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucket_account))
 		if b == nil {
@@ -167,6 +172,9 @@ func Each(db *bolt.DB, fn func(User) error) error {
 	})
 }
 
+func Auth(account, password string) {
+}
+
 func Prepare(db *bolt.DB) error {
 	return db.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists([]byte(bucket_account))
@@ -187,12 +195,10 @@ func Prepare(db *bolt.DB) error {
 	})
 }
 
-func open_bucket_view(tx *bolt.Tx, bucket string) *bolt.Bucket {
-	return tx.Bucket([]byte(bucket))
-}
-
-func not_found_bucket(b *bolt.Bucket) bool {
-	return b == nil
+func md5pass(account, password string) string {
+	const Magic = "$#*()*$"
+	data := md5.Sum([]byte(Magic + account + password + account + Magic))
+	return fmt.Sprintf("%x", data)
 }
 
 func is_internal_key(k []byte) bool {
