@@ -16,6 +16,7 @@ func main() {
 	db, err := bolt.Open("tmp.bolt", 0x600, &bolt.Options{
 		Timeout: time.Second * 1,
 	})
+
 	NoErr(err)
 
 	account.Prepare(db)

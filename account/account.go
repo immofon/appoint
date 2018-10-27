@@ -10,6 +10,7 @@ import (
 	"errors"
 
 	"github.com/immofon/appoint/log"
+	"github.com/immofon/appoint/utils"
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -24,9 +25,7 @@ type User struct {
 }
 
 var (
-	ErrInternal = errors.New("internal-error")
-	ErrNotFound = errors.New("not-found")
-	ErrUnvalid  = errors.New("unvalid")
+	ErrUnvalid = errors.New("unvalid")
 
 	ErrNotSet       = errors.New("not-set")
 	ErrAccountExist = errors.New("account-exist")
@@ -39,7 +38,7 @@ var (
 	default_next_id   = "1"
 )
 
-//Error: ErrInternal|ErrNotSet|ErrAccountExist
+//Error: utils.ErrInternal|ErrNotSet|ErrAccountExist
 func Add(db *bolt.DB, u User) error {
 	if u.Account == "" || u.Password == "" || u.Name == "" {
 		return ErrNotSet
@@ -53,7 +52,7 @@ func Add(db *bolt.DB, u User) error {
 			log.L().
 				WithField("bucket", bucket_account).
 				Error("no bucket")
-			return ErrInternal
+			return utils.ErrInternal
 		}
 
 		b_a2id := b.Bucket([]byte(bucket_account2id))
@@ -61,7 +60,7 @@ func Add(db *bolt.DB, u User) error {
 			log.L().
 				WithField("bucket", bucket_account2id).
 				Error("no bucket")
-			return ErrInternal
+			return utils.ErrInternal
 		}
 
 		// make sure account don't exists
@@ -76,7 +75,7 @@ func Add(db *bolt.DB, u User) error {
 		next_id, err := strconv.Atoi(string(b.Get([]byte(key_next_id))))
 		if err != nil {
 			log.E(err).Error("content of", key_next_id, "was not int")
-			return ErrInternal
+			return utils.ErrInternal
 		}
 
 		u.Id = strconv.Itoa(next_id)
@@ -85,25 +84,25 @@ func Add(db *bolt.DB, u User) error {
 		err = b.Put([]byte(key_next_id), []byte(strconv.Itoa(next_id+1)))
 		if err != nil {
 			log.E(err).Error()
-			return ErrInternal
+			return utils.ErrInternal
 		}
 
 		data, err := json.Marshal(u)
 		if err != nil {
 			log.E(err).Error()
-			return ErrInternal
+			return utils.ErrInternal
 		}
 
 		//account: [id]=>[user;json]
 		if err = b.Put([]byte(u.Id), data); err != nil {
 			log.E(err).Error()
-			return ErrInternal
+			return utils.ErrInternal
 		}
 
 		//account.account2id: [account]=>[id]
 		if err := b_a2id.Put([]byte(u.Account), []byte(u.Id)); err != nil {
 			log.E(err).Error()
-			return ErrInternal
+			return utils.ErrInternal
 		}
 
 		log.L().WithField("id", u.Id).
@@ -121,7 +120,7 @@ func Get(db *bolt.DB, id string) (User, error) {
 			log.L().
 				WithField("bucket", bucket_account).
 				Error("no bucket")
-			return ErrInternal
+			return utils.ErrInternal
 		}
 
 		data := b.Get([]byte(id))
@@ -129,7 +128,7 @@ func Get(db *bolt.DB, id string) (User, error) {
 			log.L().
 				WithField("id", id).
 				Debug("not found id in account bucket")
-			return ErrNotFound
+			return utils.ErrNotFound
 		}
 		return json.Unmarshal(data, &u)
 	})
@@ -142,7 +141,7 @@ func Get(db *bolt.DB, id string) (User, error) {
 		return u, nil
 	} else {
 		log.E(err).Error()
-		return u, ErrInternal
+		return u, utils.ErrInternal
 	}
 }
 
@@ -153,7 +152,7 @@ func Each(db *bolt.DB, fn func(User) error) error {
 			log.L().
 				WithField("bucket", bucket_account).
 				Error("no bucket")
-			return ErrInternal
+			return utils.ErrInternal
 		}
 
 		return b.ForEach(func(key, _user_json []byte) error {
@@ -170,7 +169,7 @@ func Each(db *bolt.DB, fn func(User) error) error {
 	})
 }
 
-//Error: ErrInternal|ErrNotFound
+//Error: utils.ErrInternal|utils.ErrNotFound
 func Id(db *bolt.DB, account string) (id string) {
 	if account == "" {
 		return ""
@@ -182,7 +181,7 @@ func Id(db *bolt.DB, account string) (id string) {
 			log.L().
 				WithField("bucket", bucket_account).
 				Error("no bucket")
-			return ErrInternal
+			return utils.ErrInternal
 		}
 
 		b_a2id := b.Bucket([]byte(bucket_account2id))
@@ -190,12 +189,12 @@ func Id(db *bolt.DB, account string) (id string) {
 			log.L().
 				WithField("bucket", bucket_account2id).
 				Error("no bucket")
-			return ErrInternal
+			return utils.ErrInternal
 		}
 
 		id = string(b_a2id.Get([]byte(account)))
 		if id == "" {
-			return ErrNotFound
+			return utils.ErrNotFound
 		}
 		return nil
 	})
@@ -206,17 +205,17 @@ func Prepare(db *bolt.DB) error {
 	return db.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists([]byte(bucket_account))
 		if err != nil {
-			return ErrInternal
+			return utils.ErrInternal
 		}
 
 		if b.Get([]byte(key_next_id)) == nil {
 			if err := b.Put([]byte(key_next_id), []byte(default_next_id)); err != nil {
-				return ErrInternal
+				return utils.ErrInternal
 			}
 		}
 
 		if _, err := b.CreateBucketIfNotExists([]byte(bucket_account2id)); err != nil {
-			return ErrInternal
+			return utils.ErrInternal
 		}
 		return nil
 	})
