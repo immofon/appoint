@@ -30,9 +30,6 @@ var (
 
 	ErrNotSet       = errors.New("not-set")
 	ErrAccountExist = errors.New("account-exist")
-
-	ErrNotFoundAccount = errors.New("not-found-account")
-	ErrNotFoundBucket  = errors.New("not-found-bucket")
 )
 
 var (
