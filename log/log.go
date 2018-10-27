@@ -25,14 +25,16 @@ func TextMode() {
 	logger.SetFormatter(new(logrus.TextFormatter))
 }
 
-func L() *logrus.Entry {
-	pc, file, line, _ := runtime.Caller(1)
+func l(skip int) *logrus.Entry {
+	pc, file, line, _ := runtime.Caller(skip)
 	return logger.WithTime(time.Now()).
 		WithField("$file", file).
 		WithField("$line", line).
 		WithField("$func", runtime.FuncForPC(pc).Name())
 }
-
+func L() *logrus.Entry {
+	return l(1)
+}
 func E(err error) *logrus.Entry {
-	return L().WithField("$err", err)
+	return l(2).WithField("$err", err)
 }
