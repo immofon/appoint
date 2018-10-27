@@ -20,6 +20,7 @@ func main() {
 
 	account.Prepare(db)
 	list(db)
+	account.Auth(db, "moon", "1223")
 	add(db, "moon", "123", "cxy")
 	get(db, "1")
 	get(db, "moon")

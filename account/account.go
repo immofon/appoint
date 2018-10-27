@@ -26,6 +26,7 @@ type User struct {
 var (
 	ErrInternal = errors.New("internal-error")
 	ErrNotFound = errors.New("not-found")
+	ErrUnvalid  = errors.New("unvalid")
 
 	ErrNotSet       = errors.New("not-set")
 	ErrAccountExist = errors.New("account-exist")
@@ -172,7 +173,36 @@ func Each(db *bolt.DB, fn func(User) error) error {
 	})
 }
 
-func Auth(account, password string) {
+//Error: ErrInternal|ErrNotFound
+func Id(db *bolt.DB, account string) (id string) {
+	if account == "" {
+		return ""
+	}
+
+	db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(bucket_account))
+		if b == nil {
+			log.L().
+				WithField("bucket", bucket_account).
+				Error("no bucket")
+			return ErrInternal
+		}
+
+		b_a2id := b.Bucket([]byte(bucket_account2id))
+		if b_a2id == nil {
+			log.L().
+				WithField("bucket", bucket_account2id).
+				Error("no bucket")
+			return ErrInternal
+		}
+
+		id = string(b_a2id.Get([]byte(account)))
+		if id == "" {
+			return ErrNotFound
+		}
+		return nil
+	})
+	return id
 }
 
 func Prepare(db *bolt.DB) error {
@@ -193,6 +223,25 @@ func Prepare(db *bolt.DB) error {
 		}
 		return nil
 	})
+}
+
+//Error: .Get|ErrUnvalid
+func Auth(db *bolt.DB, account, password string) (u User, err error) {
+	u, err = Get(db, Id(db, account))
+	if err != nil {
+		return u, err
+	}
+
+	if u.Password == md5pass(account, password) {
+		log.L().
+			WithField("id", u.Id).
+			WithField("account", u.Account).
+			Info("ok")
+		return u, nil
+	} else {
+		log.E(ErrUnvalid).Debug()
+		return u, ErrUnvalid
+	}
 }
 
 func md5pass(account, password string) string {
