@@ -35,12 +35,16 @@ func (req Request) Ret(status string) Return {
 }
 
 type Return struct {
-	Id            string            `json:"id"`
-	Status        string            `json:"status"`
-	Details       map[string]string `json:"details"`
-	UpdateContext func(context.Context) context.Context
+	Id            string                                `json:"id"`
+	Status        string                                `json:"status"`
+	Details       map[string]string                     `json:"details"`
+	UpdateContext func(context.Context) context.Context `json:"-"`
 }
 
+func (ret Return) SetUpdateContext(fn func(context.Context) context.Context) Return {
+	ret.UpdateContext = fn
+	return ret
+}
 func (ret Return) Set(key, value string) Return {
 	ret.Details[key] = value
 	return ret
