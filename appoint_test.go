@@ -20,20 +20,22 @@ func Test_SetRole(t *testing.T) {
 	defer db.Close()
 
 	Prepare(db)
-	SetRole(db, "1", Role_Admin)
-	SetRole(db, "2", Role_Teacher)
-	SetRole(db, "3", Role_Teacher)
-	SetRole(db, "4", Role_Teacher)
-	SetRole(db, "5", Role_Teacher)
-	SetRole(db, "6", Role_Teacher)
-	SetRole(db, "7", Role_Teacher)
-
-	fmt.Println(GetRole(db, "6") == Role_Admin)
-
-	EachRole(db, func(id string, r Role) error {
-		fmt.Println(id, ":", r)
+	db.Update(func(tx *bolt.Tx) error {
+		SetRole(tx, "1", Role_Admin)
+		SetRole(tx, "2", Role_Teacher)
+		SetRole(tx, "3", Role_Teacher)
+		SetRole(tx, "4", Role_Teacher)
+		SetRole(tx, "5", Role_Teacher)
+		SetRole(tx, "6", Role_Teacher)
+		SetRole(tx, "7", Role_Teacher)
+		fmt.Println(GetRole(tx, "6") == Role_Admin)
+		EachRole(tx, func(id string, r Role) error {
+			fmt.Println(id, ":", r)
+			return nil
+		})
 		return nil
 	})
+
 }
 
 func Test_IsCollided(t *testing.T) {
@@ -72,10 +74,12 @@ func Test_Insert(t *testing.T) {
 	defer db.Close()
 
 	Prepare(db)
-	Insert(db, TimeRange{
-		From:    900,
-		To:      2300,
-		Teacher: "2",
-		Student: "5",
+	db.Update(func(tx *bolt.Tx) error {
+		return Insert(tx, TimeRange{
+			From:    900,
+			To:      2300,
+			Teacher: "2",
+			Student: "5",
+		})
 	})
 }

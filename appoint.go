@@ -47,32 +47,32 @@ type TimeRange struct {
 	Status  Status `json:"status"`
 }
 
-func SetRole(db *bolt.DB, id string, r Role) error {
-	return db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(bucket_appointment))
-		if b == nil {
-			log.L().Error()
-			return utils.ErrInternal
-		}
+//Require: db.Update
+//Error: utils.ErrInternal
+func SetRole(tx *bolt.Tx, id string, r Role) error {
+	b := tx.Bucket([]byte(bucket_appointment))
+	if b == nil {
+		log.L().Error()
+		return utils.ErrInternal
+	}
 
-		b_role := b.Bucket([]byte(bucket_role))
-		if b_role == nil {
-			log.L().Error()
-			return utils.ErrInternal
-		}
+	b_role := b.Bucket([]byte(bucket_role))
+	if b_role == nil {
+		log.L().Error()
+		return utils.ErrInternal
+	}
 
-		l := log.L().WithField("id", id).
-			WithField("role", r)
+	l := log.L().WithField("id", id).
+		WithField("role", r)
 
-		err := b_role.Put([]byte(id), []byte(r))
-		if err != nil {
-			l.Error(err)
-			return utils.ErrInternal
-		}
+	err := b_role.Put([]byte(id), []byte(r))
+	if err != nil {
+		l.Error(err)
+		return utils.ErrInternal
+	}
 
-		l.Info("ok")
-		return nil
-	})
+	l.Info("ok")
+	return nil
 }
 
 //Error: utils.ErrInternal
@@ -97,93 +97,88 @@ func Prepare(db *bolt.DB) error {
 	})
 }
 
-func GetRole(db *bolt.DB, id string) Role {
-	r := Role_None
-	db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(bucket_appointment))
-		if b == nil {
-			log.L().Error()
-			return utils.ErrInternal
-		}
+//Require: db.View
+func GetRole(tx *bolt.Tx, id string) Role {
+	b := tx.Bucket([]byte(bucket_appointment))
+	if b == nil {
+		log.L().Error()
+		return Role_None
+	}
 
-		b_role := b.Bucket([]byte(bucket_role))
-		if b_role == nil {
-			log.L().Error()
-			return utils.ErrInternal
-		}
+	b_role := b.Bucket([]byte(bucket_role))
+	if b_role == nil {
+		log.L().Error()
+		return Role_None
+	}
 
-		r = Role(b_role.Get([]byte(id)))
-		return nil
-	})
-	return r
+	return Role(b_role.Get([]byte(id)))
 }
 
-func EachRole(db *bolt.DB, fn func(id string, r Role) error) error {
-	return db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(bucket_appointment))
-		if b == nil {
-			log.L().Error()
-			return utils.ErrInternal
-		}
+//Require: db.View
+//Error: inside-fn|utils.ErrInternal
+func EachRole(tx *bolt.Tx, fn func(id string, r Role) error) error {
+	b := tx.Bucket([]byte(bucket_appointment))
+	if b == nil {
+		log.L().Error()
+		return utils.ErrInternal
+	}
 
-		b_role := b.Bucket([]byte(bucket_role))
-		if b_role == nil {
-			log.L().Error()
-			return utils.ErrInternal
-		}
+	b_role := b.Bucket([]byte(bucket_role))
+	if b_role == nil {
+		log.L().Error()
+		return utils.ErrInternal
+	}
 
-		return b_role.ForEach(func(_id, _role []byte) error {
-			return fn(string(_id), Role(_role))
-		})
+	return b_role.ForEach(func(_id, _role []byte) error {
+		return fn(string(_id), Role(_role))
 	})
 }
 
-func Insert(db *bolt.DB, tr TimeRange) error {
+//Require: db.Update
+func Insert(tx *bolt.Tx, tr TimeRange) error {
 	tr.Status = Status_Enable
-	return db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(bucket_appointment))
-		if b == nil {
-			log.L().Error()
-			return utils.ErrInternal
-		}
+	b := tx.Bucket([]byte(bucket_appointment))
+	if b == nil {
+		log.L().Error()
+		return utils.ErrInternal
+	}
 
-		b_tr := b.Bucket([]byte(bucket_time_range))
-		if b_tr == nil {
-			log.L().Error()
-			return utils.ErrInternal
-		}
+	b_tr := b.Bucket([]byte(bucket_time_range))
+	if b_tr == nil {
+		log.L().Error()
+		return utils.ErrInternal
+	}
 
-		trs := make([]TimeRange, 0, 100)
-		b_tr.ForEach(func(_, _tr []byte) error {
-			var tr TimeRange
-			json.Unmarshal(_tr, &tr)
-			trs = append(trs, tr)
-			return nil
-		})
-
-		if IsCollided(trs, tr) {
-			log.E(ErrTimeCollided).Error()
-			return ErrTimeCollided
-		}
-
-		// just insert
-		data, err := json.Marshal(tr)
-		if err != nil {
-			log.E(err).Error()
-			return utils.ErrInternal
-		}
-		if err := b_tr.Put([]byte(TimeRangeId(tr)), data); err != nil {
-			log.E(err).Error()
-			return utils.ErrInternal
-		}
-		log.L().WithField("from", tr.From).
-			WithField("to", tr.To).
-			WithField("teacher", tr.Teacher).
-			WithField("student", tr.Student).
-			WithField("status", tr.Status).
-			Info("ok")
+	trs := make([]TimeRange, 0, 100)
+	b_tr.ForEach(func(_, _tr []byte) error {
+		var tr TimeRange
+		json.Unmarshal(_tr, &tr)
+		trs = append(trs, tr)
 		return nil
 	})
+
+	if IsCollided(trs, tr) {
+		log.E(ErrTimeCollided).Error()
+		return ErrTimeCollided
+	}
+
+	// just insert
+	data, err := json.Marshal(tr)
+	if err != nil {
+		log.E(err).Error()
+		return utils.ErrInternal
+	}
+	if err := b_tr.Put([]byte(TimeRangeId(tr)), data); err != nil {
+		log.E(err).Error()
+		return utils.ErrInternal
+	}
+	log.L().WithField("from", tr.From).
+		WithField("to", tr.To).
+		WithField("teacher", tr.Teacher).
+		WithField("student", tr.Student).
+		WithField("status", tr.Status).
+		Info("ok")
+	return nil
 }
 
 func IsCollided(trs []TimeRange, tr TimeRange) bool {
