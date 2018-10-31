@@ -33,7 +33,7 @@ func l(skip int) *logrus.Entry {
 		WithField("$func", runtime.FuncForPC(pc).Name())
 }
 func L() *logrus.Entry {
-	return l(1)
+	return l(2)
 }
 func E(err error) *logrus.Entry {
 	return l(2).WithField("$err", err)
