@@ -21,7 +21,10 @@ func main() {
 
 	account.Prepare(db)
 	list(db)
-	account.Auth(db, "moon", "1223")
+	db.View(func(tx *bolt.Tx) error {
+		_, err := account.Auth(tx, "moon", "1223")
+		return err
+	})
 	add(db, "moon", "123", "cxy")
 	get(db, "1")
 	get(db, "moon")
@@ -37,29 +40,37 @@ func NoErr(err error) {
 }
 
 func add(db *bolt.DB, _account, _pass, _name string) {
-	NoErr(account.Add(db, account.User{
-		Account:  _account,
-		Password: _pass,
-		Name:     _name,
+	NoErr(db.Update(func(tx *bolt.Tx) error {
+		return account.Add(tx, account.User{
+			Account:  _account,
+			Password: _pass,
+			Name:     _name,
+		})
 	}))
 }
 
 func get(db *bolt.DB, _account string) {
-	u, err := account.Get(db, _account)
-	NoErr(err)
-	data, err := json.MarshalIndent(u, "", "  ")
-	NoErr(err)
-	fmt.Println(string(data))
-}
-
-func list(db *bolt.DB) {
-	err := account.Each(db, func(u account.User) error {
-		data, err := json.Marshal(u)
-		if err != nil {
-			return err
-		}
+	db.View(func(tx *bolt.Tx) error {
+		u, err := account.Get(tx, _account)
+		NoErr(err)
+		data, err := json.MarshalIndent(u, "", "  ")
+		NoErr(err)
 		fmt.Println(string(data))
 		return nil
 	})
-	NoErr(err)
+}
+
+func list(db *bolt.DB) {
+	db.View(func(tx *bolt.Tx) error {
+		err := account.Each(tx, func(u account.User) error {
+			data, err := json.Marshal(u)
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(data))
+			return nil
+		})
+		NoErr(err)
+		return nil
+	})
 }
