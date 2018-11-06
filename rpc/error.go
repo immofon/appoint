@@ -4,6 +4,6 @@ type ErrorRetType string
 
 const (
 	Internal     ErrorRetType = "internal"
-	NotFound     ErrNotFound  = "not_found"
+	NotFound     ErrorRetType = "not_found"
 	Unauthorized ErrorRetType = "unauthorized"
 )

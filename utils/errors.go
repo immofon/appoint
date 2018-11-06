@@ -3,6 +3,6 @@ package utils
 import "errors"
 
 var (
-	ErrInternal = errors.New("internal-error")
-	ErrNotFound = errors.New("not-found")
+	ErrInternal = errors.New("internal")
+	ErrNotFound = errors.New("not_found")
 )
