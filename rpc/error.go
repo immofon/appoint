@@ -3,7 +3,7 @@ package rpc
 type ErrorRetType string
 
 const (
-	ErrInternal     ErrorRetType = "internal"
-	ErrNotFound     ErrNotFound  = "not_found"
-	ErrUnauthorized ErrorRetType = "unauthorized"
+	Internal     ErrorRetType = "internal"
+	NotFound     ErrNotFound  = "not_found"
+	Unauthorized ErrorRetType = "unauthorized"
 )
