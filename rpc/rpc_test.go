@@ -2,11 +2,11 @@ package rpc
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"testing"
 
 	"github.com/gorilla/websocket"
+	"github.com/immofon/appoint/log"
 )
 
 var upgrader = websocket.Upgrader{
@@ -18,13 +18,39 @@ var upgrader = websocket.Upgrader{
 }
 
 func TestRpc(t *testing.T) {
+	log.TextMode()
 	rpc := New(upgrader)
 
-	rpc.RegisterFunc("echo", func(ctx context.Context, req Request) Return {
-		return req.Ret("ok").Set("msg", req.Get("msg", ""))
+	rpc.RegisterFunc("login", func(ctx context.Context, req Request) Return {
+		log.L().Info("rpc.call " + "login")
+		account := req.Get("account", "")
+
+		//TODO auth
+
+		return req.Ret("ok").
+			Set("account", account).
+			SetUpdateContext(func(ctx context.Context) context.Context {
+				return WithId(ctx, account)
+			})
+	})
+
+	rpc.RegisterFunc("logout", func(ctx context.Context, req Request) Return {
+		return req.Ret("ok").
+			SetUpdateContext(func(ctx context.Context) context.Context {
+				return WithId(ctx, "")
+			})
+	})
+
+	rpc.RegisterFunc("self", func(ctx context.Context, req Request) Return {
+		id := GetId(ctx)
+		if id == "" {
+			return req.Ret("err").Set("err", "require-auth")
+		}
+
+		return req.Ret("ok").Set("id", id)
 	})
 
 	http.Handle("/ws", rpc)
-	log.Println("serve :8100")
+	log.L().Info("serve :8100")
 	t.Error(http.ListenAndServe(":8100", nil))
 }

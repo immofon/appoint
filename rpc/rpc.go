@@ -125,7 +125,8 @@ func (rpc *RPC) Call(ctx context.Context, req Request) Return {
 
 	handler, ok := rpc.funcs[req.Func]
 	if !ok {
-		return req.Ret(utils.ErrNotFound.Error()).Set("__debug", "rpc method ["+req.Func+"] was not deined")
+		log.L().WithField("name", req.Func).Warn("rpc method was not defined")
+		return req.Ret(utils.ErrNotFound.Error())
 	}
 
 	return handler.RPCHandle(ctx, req)
@@ -139,6 +140,15 @@ func (rpc *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	log.L().
+		WithField("ip", conn.RemoteAddr().String()).
+		Info("open connection")
+	defer func() {
+		log.L().
+			WithField("ip", conn.RemoteAddr().String()).
+			Info("close connection")
+	}()
+
 	ctx := context.Background()
 	for {
 		var req Request
@@ -146,6 +156,8 @@ func (rpc *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			log.E(err).Error()
 			return
 		}
+
+		log.L().WithField("req", req).Info("get request")
 
 		ret := rpc.Call(ctx, req)
 		if ret.UpdateContext != nil {
