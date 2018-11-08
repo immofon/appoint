@@ -170,5 +170,10 @@ func (rpc *RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			log.E(err).Error()
 			return
 		}
+		log.L().
+			WithField("ip", conn.RemoteAddr().String()).
+			WithField("ret", ret).
+			Debug("send response")
+
 	}
 }
