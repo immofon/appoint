@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
+	"strconv"
 	"time"
 
 	"github.com/immofon/appoint/account"
@@ -16,19 +18,24 @@ func main() {
 	db, err := bolt.Open("tmp.bolt", 0x600, &bolt.Options{
 		Timeout: time.Second * 1,
 	})
-
 	NoErr(err)
+	defer db.Close()
 
 	account.Prepare(db)
 	list(db)
-	db.View(func(tx *bolt.Tx) error {
-		_, err := account.Auth(tx, "moon", "1223")
-		return err
-	})
-	add(db, "moon", "123", "cxy")
-	get(db, "1")
-	get(db, "moon")
-	add(db, "moon", "123", "cxy")
+	add(db, "mofon", "zbiloveu", "admin")
+	add(db, "cxy", "17743044405", "曹馨月")
+
+	fmt.Println("account name:")
+	for {
+		var name, account string
+		_, err := fmt.Scanf("%s %s", &account, &name)
+		if err != nil {
+			break
+		}
+		defaultPass := account
+		add(db, account, defaultPass, name)
+	}
 }
 
 func NoErr(err error) {
@@ -62,15 +69,22 @@ func get(db *bolt.DB, _account string) {
 
 func list(db *bolt.DB) {
 	db.View(func(tx *bolt.Tx) error {
-		err := account.Each(tx, func(u account.User) error {
-			data, err := json.Marshal(u)
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(data))
+		var users []account.User
+		account.Each(tx, func(u account.User) error {
+			users = append(users, u)
 			return nil
 		})
-		NoErr(err)
+
+		sort.Slice(users, func(i, j int) bool {
+			a, _ := strconv.Atoi(users[i].Id)
+			b, _ := strconv.Atoi(users[j].Id)
+			return a < b
+		})
+
+		for _, u := range users {
+			fmt.Println(u.Id, u.Account, u.Name, u.Password)
+		}
+
 		return nil
 	})
 }
