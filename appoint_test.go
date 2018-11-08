@@ -74,12 +74,15 @@ func Test_Insert(t *testing.T) {
 	defer db.Close()
 
 	Prepare(db)
-	db.Update(func(tx *bolt.Tx) error {
-		return Insert(tx, TimeRange{
-			From:    900,
-			To:      2300,
-			Teacher: "2",
-			Student: "5",
+	for i := 0; i < 1000; i++ {
+		db.Update(func(tx *bolt.Tx) error {
+			return Insert(tx, TimeRange{
+				From:    uint64(i * 1000),
+				To:      uint64(i*1000 + 900),
+				Teacher: "2",
+				Student: "",
+				Status:  Status_Enable,
+			})
 		})
-	})
+	}
 }

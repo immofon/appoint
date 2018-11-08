@@ -181,6 +181,32 @@ func Insert(tx *bolt.Tx, tr TimeRange) error {
 	return nil
 }
 
+func EachTimeRange(tx *bolt.Tx, fn func(TimeRange) error) error {
+	b := tx.Bucket([]byte(bucket_appointment))
+	if b == nil {
+		log.L().Error()
+		return utils.ErrInternal
+	}
+
+	b_time_range := b.Bucket([]byte(bucket_time_range))
+	if b_time_range == nil {
+		log.L().Error()
+		return utils.ErrInternal
+	}
+
+	return b_time_range.ForEach(func(_id, _tr []byte) error {
+		var tr TimeRange
+		if err := json.Unmarshal(_tr, &tr); err != nil {
+			log.E(err).
+				WithField("data", _tr).
+				WithField("data.string", string(_tr)).
+				Error("json.Unmarshal failure")
+			return utils.ErrInternal
+		}
+		return fn(tr)
+	})
+}
+
 func IsCollided(trs []TimeRange, tr TimeRange) bool {
 	if tr.From >= tr.To {
 		return true
