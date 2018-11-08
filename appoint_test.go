@@ -74,7 +74,7 @@ func Test_Insert(t *testing.T) {
 	defer db.Close()
 
 	Prepare(db)
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		db.Update(func(tx *bolt.Tx) error {
 			return Insert(tx, TimeRange{
 				From:    uint64(i * 1000),

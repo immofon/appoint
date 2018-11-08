@@ -15,14 +15,12 @@ func Benchmark_Generate(b *testing.B) {
 		b.Error(err)
 	}
 	defer db.Close()
-
+	db.View(func(tx *bolt.Tx) error {
+		UpdateData(tx)
+		return nil
+	})
 	for i := 0; i < b.N; i++ {
-		var data Data
-		db.View(func(tx *bolt.Tx) error {
-			data = Generate(tx)
-			return nil
-		})
-		h(data)
+		GetData()
 	}
 }
 

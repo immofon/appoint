@@ -30,7 +30,7 @@ func start() {
 	log.TextMode()
 
 	// open db
-	db, err := bolt.Open("tmp.bolt", 0x600, &bolt.Options{
+	db, err := bolt.Open("appoint.bolt", 0x600, &bolt.Options{
 		Timeout: time.Second * 1,
 	})
 	if err != nil {
@@ -47,6 +47,9 @@ func start() {
 		log.E(err).Error("prepare appoint")
 	}
 
+	//test something
+	//Sometest(db)
+
 	// rpc methods registe
 	r := rpc.New(upgrader)
 	r.RegisterFunc("login", func(ctx context.Context, req rpc.Request) rpc.Return {
@@ -54,9 +57,11 @@ func start() {
 		u_password := req.Get("password", "")
 
 		var user account.User
+		var role appoint.Role
 		err := db.View(func(tx *bolt.Tx) error {
 			var err error
 			user, err = account.Auth(tx, u_account, u_password)
+			role = appoint.GetRole(tx, user.Id)
 			return err
 		})
 		if err != nil {
@@ -66,6 +71,7 @@ func start() {
 		return req.Ret("ok").
 			Set("id", user.Id).
 			Set("name", user.Name).
+			Set("role", string(role)).
 			SetUpdateContext(func(ctx context.Context) context.Context {
 				return rpc.WithId(ctx, user.Id)
 			})

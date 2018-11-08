@@ -1,6 +1,8 @@
 package appoint
 
 import (
+	"sync"
+
 	bolt "go.etcd.io/bbolt"
 )
 
@@ -22,12 +24,20 @@ func newData() Data {
 	}
 }
 
-func Generate(tx *bolt.Tx) Data {
-	data := newData()
+var (
+	data       Data          = newData()
+	data_rwmux *sync.RWMutex = &sync.RWMutex{}
+)
+
+func UpdateData(tx *bolt.Tx) {
+	data_rwmux.Lock()
+	defer data_rwmux.Unlock()
+
+	new_data := newData()
 
 	EachRole(tx, func(id string, r Role) error {
 		if r == Role_Student {
-			data.UserStatus[id] = UserState_Unappointed
+			new_data.UserStatus[id] = UserState_Unappointed
 		}
 		return nil
 	})
@@ -38,12 +48,18 @@ func Generate(tx *bolt.Tx) Data {
 			return nil
 		}
 		if tr.Status == Status_Achieved {
-			data.UserStatus[sid] = UserState_Done
+			new_data.UserStatus[sid] = UserState_Done
 		} else if tr.Status == Status_Disable {
-			data.UserStatus[sid] = UserState_Appointed
+			new_data.UserStatus[sid] = UserState_Appointed
 		}
 		return nil
 	})
 
+	data = new_data
+}
+
+func GetData() Data {
+	data_rwmux.RLock()
+	defer data_rwmux.RUnlock()
 	return data
 }
