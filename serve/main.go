@@ -47,6 +47,15 @@ func start() {
 		log.E(err).Error("prepare appoint")
 	}
 
+	updateDate := func() {
+		db.Update(func(tx *bolt.Tx) error {
+			appoint.UpdateData(tx)
+			return nil
+		})
+	}
+
+	updateDate()
+
 	//test something
 	//Sometest(db)
 
@@ -77,6 +86,29 @@ func start() {
 			})
 	})
 
+	// student
+	r.RegisterFunc("appointment.status",
+		func(ctx context.Context, req rpc.Request) rpc.Return {
+			id := rpc.GetId(ctx)
+
+			var role appoint.Role
+			db.View(func(tx *bolt.Tx) error {
+				role = appoint.GetRole(tx, id)
+				return nil
+			})
+
+			if role != appoint.Role_Student {
+				return ErrorRet(utils.ErrInternal, req)
+			}
+
+			status := appoint.GetData().UserStatus[id]
+			if status == "" {
+				return ErrorRet(utils.ErrInternal, req)
+			}
+
+			return req.Ret("ok").
+				Set("status", string(status))
+		})
 	// listen
 
 	http.Handle("/ws", r)
