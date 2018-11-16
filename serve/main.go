@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -87,28 +88,54 @@ func start() {
 	})
 
 	// student
-	r.RegisterFunc("appointment.status",
-		func(ctx context.Context, req rpc.Request) rpc.Return {
-			id := rpc.GetId(ctx)
+	register_require_auth_student := func(method string, fn func(ctx context.Context, req rpc.Request) rpc.Return) {
+		r.RegisterFunc(method,
+			func(ctx context.Context, req rpc.Request) rpc.Return {
+				id := rpc.GetId(ctx)
 
-			var role appoint.Role
-			db.View(func(tx *bolt.Tx) error {
-				role = appoint.GetRole(tx, id)
-				return nil
+				if id == "" {
+					return ErrorRet(account.ErrUnvalid, req)
+				}
+
+				var role appoint.Role
+				db.View(func(tx *bolt.Tx) error {
+					role = appoint.GetRole(tx, id)
+					return nil
+				})
+
+				if role != appoint.Role_Student {
+					return ErrorRet(utils.ErrInternal, req)
+				}
+
+				return fn(ctx, req)
 			})
 
-			if role != appoint.Role_Student {
-				return ErrorRet(utils.ErrInternal, req)
-			}
+	}
 
-			status := appoint.GetData().UserStatus[id]
-			if status == "" {
-				return ErrorRet(utils.ErrInternal, req)
-			}
+	register_require_auth_student("appointment.student.status", func(ctx context.Context, req rpc.Request) rpc.Return {
+		id := rpc.GetId(ctx)
+		status := appoint.GetData().UserStatus[id]
+		if status == "" {
+			return ErrorRet(utils.ErrInternal, req)
+		}
 
-			return req.Ret("ok").
-				Set("status", string(status))
+		return req.Ret("ok").
+			Set("status", string(status))
+	})
+
+	register_require_auth_student("appointment.student.time_ranges", func(ctx context.Context, req rpc.Request) rpc.Return {
+		ret := req.Ret("ok")
+		err := db.View(func(tx *bolt.Tx) error {
+			return appoint.EachTimeRange(tx, func(tr appoint.TimeRange) error {
+				ret = ret.Set(appoint.TimeRangeId(tr), fmt.Sprintf("%v:%v:%s", tr.From, tr.To, tr.Teacher))
+				return nil
+			})
 		})
+		if err != nil {
+			return ErrorRet(err, req)
+		}
+		return ret
+	})
 	// listen
 
 	http.Handle("/ws", r)
