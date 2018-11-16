@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	db, _ := bbolt.Open("tmp.bolt", 0x600, &bbolt.Options{
+	db, _ := bbolt.Open("tmp.bolt", 0600, &bbolt.Options{
 		Timeout: time.Second * 1,
 	})
 	defer db.Close()

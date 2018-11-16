@@ -40,8 +40,8 @@ const (
 )
 
 type TimeRange struct {
-	From    uint64 `json:"from"`    // unix
-	To      uint64 `json:"to"`      // unix
+	From    int64  `json:"from"`    // unix
+	To      int64  `json:"to"`      // unix
 	Teacher string `json:"teacher"` // id
 	Student string `json:"student"` // id
 	Status  Status `json:"status"`

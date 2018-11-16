@@ -8,7 +8,7 @@ import (
 )
 
 func Benchmark_Generate(b *testing.B) {
-	db, err := bolt.Open("tmp.bolt", 0x600, &bolt.Options{
+	db, err := bolt.Open("tmp.bolt", 0600, &bolt.Options{
 		Timeout: time.Second * 1,
 	})
 	if err != nil {

@@ -31,7 +31,7 @@ func start() {
 	log.TextMode()
 
 	// open db
-	db, err := bolt.Open("appoint.bolt", 0x600, &bolt.Options{
+	db, err := bolt.Open("appoint.bolt", 0600, &bolt.Options{
 		Timeout: time.Second * 1,
 	})
 	if err != nil {

@@ -11,7 +11,7 @@ import (
 
 func Test_SetRole(t *testing.T) {
 	log.TextMode()
-	db, err := bolt.Open("tmp.bolt", 0x600, &bolt.Options{
+	db, err := bolt.Open("tmp.bolt", 0600, &bolt.Options{
 		Timeout: time.Second * 1,
 	})
 	if err != nil {
@@ -43,8 +43,8 @@ func Test_IsCollided(t *testing.T) {
 	trs := make([]TimeRange, 0)
 	for i := 1; i <= 10; i++ {
 		tr := TimeRange{
-			From: uint64(i * 100),
-			To:   uint64(i*100 + 50),
+			From: int64(i * 100),
+			To:   int64(i*100 + 50),
 		}
 		trs = append(trs, tr)
 	}
@@ -77,8 +77,8 @@ func Test_Insert(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		db.Update(func(tx *bolt.Tx) error {
 			return Insert(tx, TimeRange{
-				From:    uint64(i * 1000),
-				To:      uint64(i*1000 + 900),
+				From:    int64(i * 1000),
+				To:      int64(i*1000 + 900),
 				Teacher: "2",
 				Student: "",
 				Status:  Status_Enable,
