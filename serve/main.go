@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -164,6 +165,31 @@ func start() {
 			return ErrorRet(err, req)
 		}
 		return req.Ret("ok")
+	})
+	register_require_auth_student("appointment.student.appointed_tr", func(ctx context.Context, req rpc.Request) rpc.Return {
+		id := rpc.GetId(ctx)
+
+		errBreak := errors.New("just like break in a loop")
+		var from int64
+		var to int64
+		err := db.View(func(tx *bolt.Tx) error {
+			return appoint.EachTimeRange(tx, func(tr appoint.TimeRange) error {
+				if tr.Student == id {
+					from = tr.From
+					to = tr.To
+					return errBreak
+				}
+				return nil
+			})
+		})
+
+		if err == errBreak {
+			return req.Ret("ok").Set("from", fmt.Sprint(from)).Set("to", fmt.Sprint(to))
+		}
+		if err != nil {
+			return ErrorRet(err, req)
+		}
+		return ErrorRet(utils.ErrInternal, req)
 	})
 
 	// teacher
