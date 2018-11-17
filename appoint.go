@@ -136,7 +136,6 @@ func EachRole(tx *bolt.Tx, fn func(id string, r Role) error) error {
 
 //Require: db.Update
 func Insert(tx *bolt.Tx, tr TimeRange) error {
-	tr.Status = Status_Enable
 	b := tx.Bucket([]byte(bucket_appointment))
 	if b == nil {
 		log.L().Error()
@@ -181,6 +180,48 @@ func Insert(tx *bolt.Tx, tr TimeRange) error {
 	return nil
 }
 
+func UpdateTimeRange(tx *bolt.Tx, tr_id string, fn func(TimeRange) (TimeRange, error)) error {
+	b := tx.Bucket([]byte(bucket_appointment))
+	if b == nil {
+		log.L().Error()
+		return utils.ErrInternal
+	}
+
+	b_tr := b.Bucket([]byte(bucket_time_range))
+	if b_tr == nil {
+		log.L().Error()
+		return utils.ErrInternal
+	}
+
+	// read
+	var tr TimeRange
+	if err := json.Unmarshal(b_tr.Get([]byte(tr_id)), &tr); err != nil {
+		log.E(err).Error()
+		return utils.ErrInternal
+	}
+
+	// handle
+	tr, err := fn(tr)
+	if err != nil {
+		return err
+	}
+
+	// update
+	data, err := json.Marshal(tr)
+	if err != nil {
+		log.E(err).Error()
+		return utils.ErrInternal
+	}
+	if err := b_tr.Put([]byte(TimeRangeId(tr)), data); err != nil {
+		log.E(err).Error()
+		return utils.ErrInternal
+	}
+
+	return nil
+}
+
+// require: db.View
+// Error: err in fn | utils.ErrInternal
 func EachTimeRange(tx *bolt.Tx, fn func(TimeRange) error) error {
 	b := tx.Bucket([]byte(bucket_appointment))
 	if b == nil {
