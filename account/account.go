@@ -219,6 +219,9 @@ func Prepare(db *bolt.DB) error {
 func Auth(tx *bolt.Tx, account, password string) (u User, err error) {
 	u, err = Get(tx, Id(tx, account))
 	if err != nil {
+		if err == utils.ErrNotFound {
+			err = ErrUnvalid
+		}
 		return u, err
 	}
 
