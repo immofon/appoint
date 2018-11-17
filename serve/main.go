@@ -127,7 +127,9 @@ func start() {
 		ret := req.Ret("ok")
 		err := db.View(func(tx *bolt.Tx) error {
 			return appoint.EachTimeRange(tx, func(tr appoint.TimeRange) error {
-				ret = ret.Set(appoint.TimeRangeId(tr), fmt.Sprintf("%v:%v:%s", tr.From, tr.To, tr.Teacher))
+				if tr.Status == appoint.Status_Enable {
+					ret = ret.Set(appoint.TimeRangeId(tr), fmt.Sprintf("%v:%v:%s", tr.From, tr.To, tr.Teacher))
+				}
 				return nil
 			})
 		})
@@ -135,6 +137,34 @@ func start() {
 			return ErrorRet(err, req)
 		}
 		return ret
+	})
+	register_require_auth_student("appointment.student.appoint", func(ctx context.Context, req rpc.Request) rpc.Return {
+		id := rpc.GetId(ctx)
+		status := appoint.GetData().UserStatus[id]
+
+		if status != appoint.UserState_Unappointed {
+			return ErrorRet(utils.ErrInternal, req)
+		}
+
+		tr_id := req.Get("tr_id", "")
+
+		err := db.Update(func(tx *bolt.Tx) error {
+			defer appoint.UpdateData(tx)
+
+			return appoint.UpdateTimeRange(tx, tr_id, func(tr appoint.TimeRange) (appoint.TimeRange, error) {
+				if tr.Student != "" || tr.Status != appoint.Status_Enable {
+					return tr, utils.ErrOp
+				}
+
+				tr.Student = id
+				tr.Status = appoint.Status_Disable
+				return tr, nil
+			})
+		})
+		if err != nil {
+			return ErrorRet(err, req)
+		}
+		return req.Ret("ok")
 	})
 	// listen
 
@@ -155,6 +185,8 @@ func ErrorRet(err error, req rpc.Request) rpc.Return {
 		return req.Ret(string(rpc.Internal))
 	case utils.ErrNotFound:
 		return req.Ret(string(rpc.NotFound))
+	case utils.ErrOp:
+		return req.Ret(string(rpc.Op))
 
 		// ADD TO HERE
 	default:
