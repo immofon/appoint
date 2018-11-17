@@ -211,6 +211,45 @@ func start() {
 		return ret
 	})
 
+	register_require_auth_teacher("appointment.teacher.tr.close", func(ctx context.Context, req rpc.Request) rpc.Return {
+		id := rpc.GetId(ctx)
+		tr_id := req.Get("tr_id", "")
+		err := db.Update(func(tx *bolt.Tx) error {
+			return appoint.UpdateTimeRange(tx, tr_id, func(tr appoint.TimeRange) (appoint.TimeRange, error) {
+				if !tr.Operable() || tr.Status != appoint.Status_Enable || tr.Teacher != id {
+					log.E(err).Error()
+					return tr, utils.ErrInternal
+				}
+
+				tr.Status = appoint.Status_Disable
+				return tr, nil
+			})
+		})
+		if err != nil {
+			return ErrorRet(err, req)
+		}
+		return req.Ret("ok")
+	})
+	register_require_auth_teacher("appointment.teacher.tr.open", func(ctx context.Context, req rpc.Request) rpc.Return {
+		id := rpc.GetId(ctx)
+		tr_id := req.Get("tr_id", "")
+		err := db.Update(func(tx *bolt.Tx) error {
+			return appoint.UpdateTimeRange(tx, tr_id, func(tr appoint.TimeRange) (appoint.TimeRange, error) {
+				if !tr.Operable() || tr.Status != appoint.Status_Disable || tr.Teacher != id {
+					log.E(err).Error()
+					return tr, utils.ErrInternal
+				}
+
+				tr.Status = appoint.Status_Enable
+				return tr, nil
+			})
+		})
+		if err != nil {
+			return ErrorRet(err, req)
+		}
+		return req.Ret("ok")
+	})
+
 	// listen
 
 	http.Handle("/ws", r)
