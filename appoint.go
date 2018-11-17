@@ -97,6 +97,16 @@ func Prepare(db *bolt.DB) error {
 	})
 }
 
+func (tr TimeRange) Operable() bool {
+	if tr.Status == Status_Enable {
+		return true
+	}
+	if tr.Status == Status_Disable && tr.Student == "" {
+		return true
+	}
+	return false
+}
+
 //Require: db.View
 func GetRole(tx *bolt.Tx, id string) Role {
 	b := tx.Bucket([]byte(bucket_appointment))
