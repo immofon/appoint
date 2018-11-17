@@ -58,6 +58,49 @@ func start() {
 
 	updateDate()
 
+	// auto task per 10 min
+	go func(d time.Duration) {
+		for {
+			// auto add next 10 days appointments
+			db.Update(func(tx *bolt.Tx) error {
+				today := utils.DateZero(time.Now())
+				for i := 0; i < 10; i++ {
+					trs := utils.NormalTimeRange(today.AddDate(0, 0, i))
+					for _, tr := range trs {
+						appoint.Insert(tx, appoint.TimeRange{
+							From:    tr.From,
+							To:      tr.To,
+							Teacher: "2",
+							Student: "",
+							Status:  appoint.Status_Disable,
+						})
+					}
+				}
+				return nil
+			})
+			// auto achieve past appointments
+			now := time.Now().Unix()
+			db.Update(func(tx *bolt.Tx) error {
+				return appoint.EachTimeRange(tx, func(tr appoint.TimeRange) error {
+					needAchieve := func(tr appoint.TimeRange) bool {
+						return tr.Status == appoint.Status_Enable || tr.Status == appoint.Status_Disable
+					}
+					if now > tr.To && needAchieve(tr) {
+						return appoint.UpdateTimeRange(tx, appoint.TimeRangeId(tr), func(tr appoint.TimeRange) (appoint.TimeRange, error) {
+							tr.Status = appoint.Status_Achieved
+							return tr, nil
+						})
+					}
+					return nil
+				})
+			})
+
+			// sleep
+			time.Sleep(d)
+		}
+
+	}(time.Minute * 10)
+
 	//test something
 	//Sometest(db)
 
@@ -241,6 +284,8 @@ func start() {
 		id := rpc.GetId(ctx)
 		tr_id := req.Get("tr_id", "")
 		err := db.Update(func(tx *bolt.Tx) error {
+			defer appoint.UpdateData(tx)
+
 			return appoint.UpdateTimeRange(tx, tr_id, func(tr appoint.TimeRange) (appoint.TimeRange, error) {
 				if !tr.Operable() || tr.Status != appoint.Status_Enable || tr.Teacher != id {
 					log.E(err).Error()
@@ -260,6 +305,8 @@ func start() {
 		id := rpc.GetId(ctx)
 		tr_id := req.Get("tr_id", "")
 		err := db.Update(func(tx *bolt.Tx) error {
+			defer appoint.UpdateData(tx)
+
 			return appoint.UpdateTimeRange(tx, tr_id, func(tr appoint.TimeRange) (appoint.TimeRange, error) {
 				if !tr.Operable() || tr.Status != appoint.Status_Disable || tr.Teacher != id {
 					log.E(err).Error()

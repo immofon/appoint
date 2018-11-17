@@ -2,6 +2,7 @@ package log
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"time"
 
@@ -19,6 +20,7 @@ func init() {
 		fmt.Println("exit", code)
 		utils.Exit()
 	}
+	logger.SetOutput(os.Stdout)
 }
 
 func TextMode() {
