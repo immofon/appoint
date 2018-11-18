@@ -78,23 +78,6 @@ func start() {
 				}
 				return nil
 			})
-			// auto achieve past appointments
-			now := time.Now().Unix()
-			db.Update(func(tx *bolt.Tx) error {
-				return appoint.EachTimeRange(tx, func(tr appoint.TimeRange) error {
-					needAchieve := func(tr appoint.TimeRange) bool {
-						return tr.Status == appoint.Status_Enable || tr.Status == appoint.Status_Disable
-					}
-					if now > tr.To && needAchieve(tr) {
-						return appoint.UpdateTimeRange(tx, appoint.TimeRangeId(tr), func(tr appoint.TimeRange) (appoint.TimeRange, error) {
-							tr.Status = appoint.Status_Achieved
-							return tr, nil
-						})
-					}
-					return nil
-				})
-			})
-
 			// sleep
 			time.Sleep(d)
 		}
@@ -321,6 +304,24 @@ func start() {
 			return ErrorRet(err, req)
 		}
 		return req.Ret("ok")
+	})
+
+	register_require_auth_teacher("appointment.teacher.schedule", func(ctx context.Context, req rpc.Request) rpc.Return {
+		id := rpc.GetId(ctx)
+		ret := req.Ret("ok")
+		err := db.View(func(tx *bolt.Tx) error {
+			return appoint.EachTimeRange(tx, func(tr appoint.TimeRange) error {
+				if isTeacherSchedule(tr, id, utils.DateZero(time.Now())) {
+					student, _ := account.Get(tx, tr.Student)
+					ret = ret.Set(appoint.TimeRangeId(tr), fmt.Sprintf("%v:%v:%s:%s:%s", tr.From, tr.To, tr.Student, student.Account, student.Name))
+				}
+				return nil
+			})
+		})
+		if err != nil {
+			return ErrorRet(err, req)
+		}
+		return ret
 	})
 
 	// listen
