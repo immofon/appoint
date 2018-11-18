@@ -63,6 +63,7 @@ func start() {
 		for {
 			// auto add next 10 days appointments
 			db.Update(func(tx *bolt.Tx) error {
+				defer appoint.UpdateData(tx)
 				today := utils.DateZero(time.Now())
 				for i := 0; i < 10; i++ {
 					trs := utils.NormalTimeRange(today.AddDate(0, 0, i))
@@ -323,7 +324,55 @@ func start() {
 		}
 		return ret
 	})
-
+	register_require_auth_teacher("appointment.teacher.students", func(ctx context.Context, req rpc.Request) rpc.Return {
+		ret := req.Ret("ok")
+		data := appoint.GetData()
+		err := db.View(func(tx *bolt.Tx) error {
+			for student_id, status := range data.UserStatus {
+				var tr_from int64 = 0
+				var tr_id = ""
+				if tr, ok := data.TimeRanges[student_id]; ok {
+					tr_from = tr.From
+					tr_id = appoint.TimeRangeId(tr)
+				}
+				student, _ := account.Get(tx, student_id)
+				ret = ret.Set(student_id, fmt.Sprintf("%v:%v:%v:%v:%v:%v", student_id, student.Account, student.Name, status, tr_id, tr_from))
+			}
+			return nil
+		})
+		if err != nil {
+			return ErrorRet(err, req)
+		}
+		return ret
+	})
+	register_require_auth_teacher("appointment.teacher.manage.student@achieve", func(ctx context.Context, req rpc.Request) rpc.Return {
+		tr_id := req.Get("tr_id", "")
+		err := db.Update(func(tx *bolt.Tx) error {
+			defer appoint.UpdateData(tx)
+			return appoint.UpdateTimeRange(tx, tr_id, func(tr appoint.TimeRange) (appoint.TimeRange, error) {
+				tr.Status = appoint.Status_Achieved
+				return tr, nil
+			})
+		})
+		if err != nil {
+			return ErrorRet(err, req)
+		}
+		return req.Ret("ok")
+	})
+	register_require_auth_teacher("appointment.teacher.manage.student@breach", func(ctx context.Context, req rpc.Request) rpc.Return {
+		tr_id := req.Get("tr_id", "")
+		err := db.Update(func(tx *bolt.Tx) error {
+			defer appoint.UpdateData(tx)
+			return appoint.UpdateTimeRange(tx, tr_id, func(tr appoint.TimeRange) (appoint.TimeRange, error) {
+				tr.Status = appoint.Status_Breached
+				return tr, nil
+			})
+		})
+		if err != nil {
+			return ErrorRet(err, req)
+		}
+		return req.Ret("ok")
+	})
 	// listen
 
 	http.Handle("/ws", r)

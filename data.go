@@ -15,12 +15,14 @@ const (
 )
 
 type Data struct {
-	UserStatus map[string]UserState
+	UserStatus map[string]UserState // [student_id]
+	TimeRanges map[string]TimeRange // [student_id]
 }
 
 func newData() Data {
 	return Data{
 		UserStatus: make(map[string]UserState),
+		TimeRanges: make(map[string]TimeRange),
 	}
 }
 
@@ -51,6 +53,10 @@ func UpdateData(tx *bolt.Tx) {
 			new_data.UserStatus[sid] = UserState_Done
 		} else if tr.Status == Status_Disable {
 			new_data.UserStatus[sid] = UserState_Appointed
+		}
+
+		if tr.Student != "" {
+			new_data.TimeRanges[sid] = tr
 		}
 		return nil
 	})
