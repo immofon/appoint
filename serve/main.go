@@ -154,7 +154,8 @@ func start() {
 		ret := req.Ret("ok")
 		err := db.View(func(tx *bolt.Tx) error {
 			return appoint.EachTimeRange(tx, func(tr appoint.TimeRange) error {
-				if tr.Status == appoint.Status_Enable {
+				now := time.Now().Unix()
+				if tr.Status == appoint.Status_Enable && now < tr.From {
 					ret = ret.Set(appoint.TimeRangeId(tr), fmt.Sprintf("%v:%v:%s", tr.From, tr.To, tr.Teacher))
 				}
 				return nil
@@ -252,7 +253,8 @@ func start() {
 					return nil
 				}
 
-				if tr.Operable() {
+				now := time.Now().Unix()
+				if tr.Operable() && now < tr.From {
 					ret = ret.Set(appoint.TimeRangeId(tr), fmt.Sprintf("%v:%v:%v", tr.From, tr.To, tr.Status))
 				}
 				return nil
