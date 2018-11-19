@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -82,8 +83,29 @@ func start() {
 			// sleep
 			time.Sleep(d)
 		}
-
 	}(time.Minute * 10)
+
+	// auto task per hour
+	go func(d time.Duration) {
+		for {
+			// auto add next 10 days appointments
+			db.View(func(tx *bolt.Tx) error {
+				if err := os.Mkdir("./backup", 0700); err != nil {
+					return err
+				}
+				file, err := os.Create("./backup/" + time.Now().Format("2006_01_02_15_04_05") + ".bolt")
+				if err != nil {
+					return err
+				}
+				defer file.Close()
+
+				tx.WriteTo(file)
+				return file.Sync()
+			})
+			// sleep
+			time.Sleep(d)
+		}
+	}(time.Hour * 1)
 
 	//test something
 	//Sometest(db)
